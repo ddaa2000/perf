@@ -97,17 +97,10 @@ perf_measurement_t *perf_create_measurement(unsigned type, unsigned config, pid_
 int perf_open_measurement(perf_measurement_t *measurement, int group, int flags);
 
 // Start a measurement. Resets the counter and starts it.
-void perf_start_measurement(perf_measurement_t *measurement){              
-  do {                                                                              
-    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP); 
-    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
-  } while (0);
-}
+void perf_start_measurement(perf_measurement_t *measurement);
 
 // Stop a measurement.
-int perf_stop_measurement(perf_measurement_t *measurement){
-  return ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
-}
+int perf_stop_measurement(perf_measurement_t *measurement);
 
 // Read a measured value.
 // Return the number read, -1 for errors or 0 for EOF.

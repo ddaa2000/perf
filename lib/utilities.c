@@ -178,6 +178,18 @@ int perf_open_measurement(perf_measurement_t *measurement, int group, int flags)
   return 0;
 }
 
+void perf_start_measurement(perf_measurement_t *measurement){              
+  do {                                                                              
+    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP); 
+    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+  } while (0);
+}
+
+// Stop a measurement.
+int perf_stop_measurement(perf_measurement_t *measurement){
+  return ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+}
+
 int perf_read_measurement(const perf_measurement_t *measurement, void *target, size_t bytes) {
   return read(measurement->file_descriptor, target, bytes);
 }
@@ -289,6 +301,8 @@ int perf_open_group(perf_measurement_group_t *group){
   }
   return 0;
 }
+
+
 
 void perf_start_measurement_group(perf_measurement_group_t *group){
   perf_start_measurement(group->dummy_parent);
