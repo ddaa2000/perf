@@ -51,3 +51,7 @@ format: compile_commands.json
 
 clean:
 	rm -rf build &>/dev/null || true
+
+install:
+	cp -r build/include/* /usr/include
+	cp build/lib/perf/libperf.a /usr/lib

@@ -20,6 +20,10 @@
 // The event is not supported, or invalid
 #define PERF_ERROR_NOT_SUPPORTED -6
 
+#define SPACE_USER 1
+#define SPACE_KERNEL (1 << 1)
+#define SPACER_USER_AND_KERNEL (SPACE_KERNEL | SPACE_USER)
+
 typedef struct {
   // The attribute for the measurement
   perf_event_attr_t attribute;
@@ -34,6 +38,17 @@ typedef struct {
   // The ID of the measurement
   uint64_t id;
 } perf_measurement_t;
+
+typedef struct {
+  perf_measurement_t** measurements;
+  perf_measurement_t* dummy_parent;
+  int size;
+} perf_measurement_group_t;
+
+typedef struct {
+  uint64_t recorded_values;
+  uint64_t* values;
+} measurement_group_t;
 
 // Returns whether or not the perf API is supported.
 int perf_is_supported();
@@ -74,7 +89,7 @@ int perf_has_capability(int capability);
 // pid == -1 and cpu >= 0 This measures all processes / threads on the specified CPU.This requires CAP_PERFMON(since Linux 5.8) or CAP_SYS_ADMIN capability or a event paranoia value of less than 1.
 // pid  == -1 and cpu == -1 This setting is invalid and will return an error.
 // Returns NULL if an error occured.
-perf_measurement_t *perf_create_measurement(int type, int config, pid_t pid, int cpu);
+perf_measurement_t *perf_create_measurement(unsigned type, unsigned config, pid_t pid, int cpu);
 
 // Open a measurement to prepare it for usage.
 // An opened measurement should be closed using perf_close_measurement.
@@ -82,14 +97,17 @@ perf_measurement_t *perf_create_measurement(int type, int config, pid_t pid, int
 int perf_open_measurement(perf_measurement_t *measurement, int group, int flags);
 
 // Start a measurement. Resets the counter and starts it.
-#define perf_start_measurement(measurement)                                          \
-  do {                                                                               \
-    ioctl(measurement->file_descriptor, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP);  \
-    ioctl(measurement->file_descriptor, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP); \
-  } while (0)
+void perf_start_measurement(perf_measurement_t *measurement){              
+  do {                                                                              
+    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_RESET, PERF_IOC_FLAG_GROUP); 
+    ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+  } while (0);
+}
 
 // Stop a measurement.
-#define perf_stop_measurement(measurement) ioctl(measurement->file_descriptor, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP)
+int perf_stop_measurement(perf_measurement_t *measurement){
+  return ioctl((measurement)->file_descriptor, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+}
 
 // Read a measured value.
 // Return the number read, -1 for errors or 0 for EOF.
@@ -106,5 +124,26 @@ int perf_event_is_supported(const perf_measurement_t *measurement);
 // Close the measurement.
 // Returns <0 if an error occured.
 int perf_close_measurement(const perf_measurement_t *measurement);
+
+void perf_free_measurement(perf_measurement_t *measurement);
+
+
+perf_measurement_group_t *perf_create_group(perf_measurement_t** measurements, int size);
+
+int perf_open_group(perf_measurement_group_t *group);
+
+void perf_start_measurement_group(perf_measurement_group_t *group);
+
+void perf_stop_measurement_group(perf_measurement_group_t *group);
+
+void perf_close_measurement_group(perf_measurement_group_t *group);
+
+void perf_free_measurement_group(perf_measurement_group_t *group);
+
+void perf_free_measurement_results(measurement_group_t results);
+
+// void perf_read_measurement_group(perf_measurement_group_t *group, void *target, size_t bytes);
+
+measurement_group_t perf_decode_group(perf_measurement_group_t *group);
 
 #endif

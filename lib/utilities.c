@@ -132,7 +132,7 @@ int perf_has_capability(int capability) {
   return sys_admin_value == CAP_SET;
 }
 
-perf_measurement_t *perf_create_measurement(int type, int config, pid_t pid, int cpu) {
+perf_measurement_t *perf_create_measurement(unsigned type, unsigned config, pid_t pid, int cpu) {
   perf_measurement_t *measurement = (perf_measurement_t *)malloc(sizeof(perf_measurement_t));
   if (measurement == NULL)
     return NULL;
@@ -146,6 +146,8 @@ perf_measurement_t *perf_create_measurement(int type, int config, pid_t pid, int
   measurement->attribute.config = config;
   measurement->attribute.disabled = 1;
   measurement->attribute.read_format = PERF_FORMAT_GROUP | PERF_FORMAT_ID;
+  // measurement->attribute.exclude_user = !(space_mode & SPACE_USER);
+  // measurement->attribute.exclude_kernel = !(space_mode & SPACE_KERNEL);
 
   return measurement;
 }
@@ -227,4 +229,137 @@ int perf_close_measurement(const perf_measurement_t *measurement) {
     return PERF_ERROR_IO;
 
   return 0;
+}
+
+static int prepare_measurement(perf_measurement_t *measurement, perf_measurement_t *parent_measurement) {
+  int status = perf_has_sufficient_privilege(measurement);
+  if (status < 0) {
+    perf_print_error(status);
+    return status;
+  } else if (status == 0) {
+    fprintf(stderr, "error: unprivileged user\n");
+    return -1;
+  }
+
+  int support_status = perf_event_is_supported(measurement);
+  if (support_status < 0) {
+    perf_print_error(support_status);
+    return support_status;
+  } else if (support_status == 0) {
+    fprintf(stderr, "warning: not supported\n");
+    return -1;
+  }
+
+  int group = parent_measurement == NULL ? -1 : parent_measurement->file_descriptor;
+
+  status = perf_open_measurement(measurement, group, 0);
+  if (status < 0) {
+    perf_print_error(status);
+  }
+  return 0;
+}
+
+void perf_free_measurement(perf_measurement_t *measurement){
+  free(measurement);
+}
+
+perf_measurement_group_t *perf_create_group(perf_measurement_t** measurements, int size){
+  perf_measurement_group_t* group = (perf_measurement_group_t*)malloc(sizeof(perf_measurement_group_t));
+  group->measurements = (perf_measurement_t**)malloc(size * sizeof(perf_measurement_t*));
+  for(int i = 0; i < size; i++){
+    group->measurements[i] = measurements[i];
+  }
+  group->size = size;
+  group->dummy_parent = perf_create_measurement(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_DUMMY, 0, -1);
+  return group;
+}
+
+int perf_open_group(perf_measurement_group_t *group){
+  int status = prepare_measurement(group->dummy_parent, NULL);
+  if(status < 0){
+    printf("error: create dummy failed\n");
+    return -1;
+  }
+  for(int i = 0; i < group->size; i++){
+    status = prepare_measurement(group->measurements[i], group->dummy_parent);
+    if(status < 0){
+      printf("error: create %d measurement failed\n", i);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+void perf_start_measurement_group(perf_measurement_group_t *group){
+  perf_start_measurement(group->dummy_parent);
+}
+
+void perf_stop_measurement_group(perf_measurement_group_t *group){
+  perf_stop_measurement(group->dummy_parent);
+}
+
+// void perf_read_measurement_group(perf_measurement_group_t *group, void *target, size_t bytes){
+//   perf_read_measurement(group->dummy_parent, target, bytes);
+// }
+
+void perf_close_measurement_group(perf_measurement_group_t *group){
+  perf_close_measurement(group->dummy_parent);
+}
+
+typedef struct{
+  uint64_t value;
+  uint64_t id;
+}value_t;
+
+measurement_group_t perf_decode_group(perf_measurement_group_t *group){
+  uint64_t* values = (uint64_t*)malloc(group->size * sizeof(uint64_t));
+
+
+  int size = 0;
+
+  uint64_t expected_size = (group->size + 1) * sizeof(value_t)+sizeof(uint64_t);
+  char* buff = (char*)malloc(expected_size);
+  size += perf_read_measurement(group->dummy_parent, buff, expected_size);
+  // size += perf_read_measurement(group->dummy_parent, recorded_values, group->size * sizeof(value_t));
+
+  uint64_t recorded_nums = *(uint64_t*)buff;
+  value_t* recorded_values = (value_t*)(((uint64_t*)buff)+1);
+
+  // printf("recorded nums: %u\n", recorded_nums);
+  // printf("expected size: %u\n", expected_size);
+  // printf("size: %d\n", size);
+
+  // for(int j = 0; j < group->size; j++){
+  //   printf("id: %u\n", group->measurements[j]->id);
+  // }
+
+  for(uint64_t i = 0; i < recorded_nums; i++){
+    // printf("id: %u, num: %u\n", recorded_values[i].id, recorded_values[i].value);
+    for(int j = 0; j < group->size; j++){
+      if(recorded_values[i].id == group->measurements[j]->id){
+        values[j] = recorded_values[i].value;
+        break;
+      }
+    }
+  }
+  
+
+  measurement_group_t result;
+  result.recorded_values = recorded_nums - 1;
+  result.values = values;
+  free(buff);
+  return result;
+}
+
+void perf_free_measurement_group(perf_measurement_group_t *group){
+  for(int i = 0; i < group->size; i++){
+    perf_free_measurement(group->measurements[i]);
+  }
+  free(group->measurements);
+  perf_free_measurement(group->dummy_parent);
+  free(group);
+}
+
+void perf_free_measurement_results(measurement_group_t results){
+  free(results.values);
 }
