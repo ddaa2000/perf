@@ -366,12 +366,16 @@ measurement_group_t perf_decode_group(perf_measurement_group_t *group){
 }
 
 void perf_free_measurement_group(perf_measurement_group_t *group){
-  for(int i = 0; i < group->size; i++){
-    perf_free_measurement(group->measurements[i]);
-  }
   free(group->measurements);
   perf_free_measurement(group->dummy_parent);
   free(group);
+}
+
+void perf_free_measurement_group_with_members(perf_measurement_group_t *group){
+  for(int i = 0; i < group->size; i++){
+    perf_free_measurement(group->measurements[i]);
+  }
+  perf_free_measurement_group(group);
 }
 
 void perf_free_measurement_results(measurement_group_t results){

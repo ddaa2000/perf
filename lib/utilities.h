@@ -133,6 +133,8 @@ void perf_close_measurement_group(perf_measurement_group_t *group);
 
 void perf_free_measurement_group(perf_measurement_group_t *group);
 
+void perf_free_measurement_group_with_members(perf_measurement_group_t *group);
+
 void perf_free_measurement_results(measurement_group_t results);
 
 // void perf_read_measurement_group(perf_measurement_group_t *group, void *target, size_t bytes);

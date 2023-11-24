@@ -1,7 +1,7 @@
 # Disable echoing of commands
 MAKEFLAGS += --silent
 
-export CCFLAGS := $(CCFLAGS) -Wall -Wextra -pedantic -Wno-unused-parameter -fno-omit-frame-pointer -g
+export CCFLAGS := $(CCFLAGS) -Wall -Wextra -pedantic -Wno-unused-parameter -fno-omit-frame-pointer -g -fPIC
 
 source := $(shell find * -type f -name "*.c" -not -path "build/*")
 headers := $(shell find * -type f -name "*.h" -not -path "build/*")
@@ -10,13 +10,13 @@ headers := $(shell find * -type f -name "*.h" -not -path "build/*")
 
 build: library examples
 
-library: build/lib/perf/libperf.a lib/perf.h lib/utilities.h
+library: build/lib/perf/libperfgroup.a lib/perf.h lib/utilities.h
 	mkdir -p build/include/perf/
 	cp lib/perf.h lib/utilities.h build/include/perf
 
 examples: build/examples/full build/examples/minimal build/examples/pi
 
-build/lib/perf/libperf.a: build/perf.o build/utilities.o
+build/lib/perf/libperfgroup.a: build/perf.o build/utilities.o
 	mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
 
@@ -54,4 +54,4 @@ clean:
 
 install:
 	cp -r build/include/* /usr/include
-	cp build/lib/perf/libperf.a /usr/lib
+	cp build/lib/perf/libperfgroup.a /usr/lib
