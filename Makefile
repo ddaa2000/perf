@@ -30,15 +30,15 @@ build/utilities.o: lib/utilities.c lib/utilities.h
 
 build/examples/full: library examples/full/main.c examples/full/harness.c examples/full/harness.h
 	mkdir -p $(dir $@)
-	$(CC) $(CCFLAGS) -o $@ examples/full/main.c examples/full/harness.c -I build/include -L build/lib/perf -lperf -lcap
+	$(CC) $(CCFLAGS) -o $@ examples/full/main.c examples/full/harness.c -I build/include -L build/lib/perf -lperfgroup -lcap
 
 build/examples/minimal: library examples/minimal/main.c
 	mkdir -p $(dir $@)
-	$(CC) $(CCFLAGS) -o $@ examples/minimal/main.c -I build/include -L build/lib/perf -lperf -lcap
+	$(CC) $(CCFLAGS) -o $@ examples/minimal/main.c -I build/include -L build/lib/perf -lperfgroup -lcap
 
 build/examples/pi: library examples/pi/main.c
 	mkdir -p $(dir $@)
-	$(CC) $(CCFLAGS) -o $@ examples/pi/main.c  examples/pi/harness.c -I build/include -L build/lib/perf -lperf -lcap -lm
+	$(CC) $(CCFLAGS) -o $@ examples/pi/main.c  examples/pi/harness.c -I build/include -L build/lib/perf -lperfgroup -lcap -lm
 
 # Create the compilation database for llvm tools
 compile_commands.json: Makefile
